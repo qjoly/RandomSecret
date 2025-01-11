@@ -16,10 +16,6 @@ import (
 	"k8s.io/klog"
 )
 
-const (
-	operatorAnnotation = "secret.a-cup-of.coffee/enable"
-)
-
 func main() {
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
@@ -60,11 +56,8 @@ func main() {
 	for _, secret := range kubeSecrets.Items {
 		if len(secret.Annotations) > 0 {
 
-			for key, value := range secret.Annotations {
-				if key == operatorAnnotation && value == "true" {
-					klog.Info(secret.Name)
-					secrets.HandleSecrets(secret)
-				}
+			if secrets.IsSecretManaged(secret) {
+				secrets.HandleSecrets(secret)
 			}
 		}
 	}
