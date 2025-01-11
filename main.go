@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,6 +14,19 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 )
+
+const (
+	operatorAnnotation = "secret.a-cup-of.coffee/enable"
+)
+
+func logger(msg string) {
+	environmentVar := "CODER_CODE_SERVER_SERVICE_HOST" // This is a variable that is set by Coder when running in a container
+	if os.Getenv(environmentVar) != "" {
+		klog.Info(msg)
+	} else {
+		fmt.Println(msg)
+	}
+}
 
 func main() {
 	cfg, err := rest.InClusterConfig()
@@ -32,28 +46,34 @@ func main() {
 			kubeconfigPath = filepath.Join(homeDir, ".kube", "config")
 		}
 
-		klog.Info("Using kubeconfig: ", kubeconfigPath)
+		logger(fmt.Sprintf("Using kubeconfig: ", kubeconfigPath))
 		flag.Parse()
 		cfg, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 		if err != nil {
-			log.Fatalf("Error building kubeconfig: %v", err)
+			logger(fmt.Sprintf("Error building kubeconfig: %v", err))
+			os.Exit(1)
 		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		log.Fatalf("Error creating clientset: %v", err)
+		logger(fmt.Sprintf("Error creating clientset: %v", err))
 	}
 
 	secrets, err := clientset.CoreV1().Secrets("").List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		log.Fatalf("Error listing secrets: %v", err)
+		logger(fmt.Sprintf("Error listing secrets: %v", err))
 	}
 
+	logger(fmt.Sprintf("Found %d secrets\n", len(secrets.Items)))
 	for _, secret := range secrets.Items {
 		if len(secret.Annotations) > 0 {
-			klog.Info(secret.Name, secret.Annotations)
+
+			for key, value := range secret.Annotations {
+				if key == operatorAnnotation && value == "true" {
+					logger(secret.Name)
+				}
+			}
 		}
-		klog.Info(secret.Name)
 	}
 }
