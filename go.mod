@@ -1,6 +1,6 @@
 module github.com/qjoly/randomsecret
 
-go 1.23.3
+go 1.23
 
 require (
 	k8s.io/apimachinery v0.32.0

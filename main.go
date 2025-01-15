@@ -17,6 +17,7 @@ import (
 )
 
 func main() {
+	// Try to get the in-cluster config
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		// If not running in a cluster, use a traditional kubeconfig
@@ -47,7 +48,7 @@ func main() {
 		klog.Info(fmt.Sprintf("Error creating clientset: %v", err))
 	}
 
-	kubeSecrets, err := clientset.CoreV1().Secrets("").List(context.Background(), metav1.ListOptions{})
+	kubeSecrets, err := clientset.CoreV1().Secrets("coder").List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.Info(fmt.Sprintf("Error listing secrets: %v", err))
 	}
@@ -57,7 +58,7 @@ func main() {
 		if len(secret.Annotations) > 0 {
 
 			if secrets.IsSecretManaged(secret) {
-				secrets.HandleSecrets(secret)
+				secrets.HandleSecrets(clientset, secret)
 			}
 		}
 	}
