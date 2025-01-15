@@ -65,10 +65,14 @@ func generateRandomSecret(pattern string) string {
 
 // patchSecret updates the secret with the new value
 func patchSecret(clientset *kubernetes.Clientset, secret v1.Secret, key string, value string) {
+
 	secret.Data[key] = []byte(value)
+
 	_, err := clientset.CoreV1().Secrets(secret.Namespace).Update(context.Background(), &secret, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Info(fmt.Sprintf("Error patching secret %s: %v", secret.Name, err))
 	}
+
+	klog.Info(fmt.Sprintf("Secret %s patched with key %s", secret.Name, key))
 
 }
