@@ -51,6 +51,5 @@ jobs:
           context: .
           push: true
           file: Dockerfile
-          image: ghcr.io/qjoly/randomsecret
-          tags: dev
+          tags: ghcr.io/qjoly/randomsecret:dev
           
