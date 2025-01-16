@@ -3,8 +3,10 @@ package secrets
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/qjoly/randomsecret/pkg/types"
+	"golang.org/x/exp/rand"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -52,19 +54,33 @@ func HandleSecrets(clientset *kubernetes.Clientset, secret v1.Secret) {
 		klog.Info(fmt.Sprintf("Secret %s already handled", secret.Name))
 		return
 	}
-	randomPass := generateRandomSecret("password")
+	randomPass := generateRandomSecret(20, true)
 	patchSecret(clientset, secret, getRandomSecretKey(secret), randomPass)
 }
 
-func generateRandomSecret(pattern string) string {
-	// Generate a random secret
-	// For now, we will just return the pattern
-	// In the future, we will implement the random generation
-	return pattern
+func generateRandomSecret(length int, specialChar bool) string {
+	pattern := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	if specialChar {
+		pattern += "!@#$%^&*()_+"
+	}
+
+	rand.Seed(uint64(time.Now().UnixNano()))
+
+	secret := make([]byte, length)
+	for i := range secret {
+		secret[i] = pattern[rand.Intn(len(pattern))]
+	}
+
+	return string(secret)
 }
 
 // patchSecret updates the secret with the new value
 func patchSecret(clientset *kubernetes.Clientset, secret v1.Secret, key string, value string) {
+
+	// If the secret data map is nil, create a new map
+	if secret.Data == nil {
+		secret.Data = make(map[string][]byte)
+	}
 
 	secret.Data[key] = []byte(value)
 
