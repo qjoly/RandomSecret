@@ -41,7 +41,6 @@ func main() {
 		fields.Everything(),
 	)
 
-	// todo : don't consider existing secrets
 	secretHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			secret, ok := obj.(*v1.Secret)
@@ -49,9 +48,9 @@ func main() {
 				log.Println("Failed to cast to Secret")
 				return
 			}
-			fmt.Println("Secret added ", secret.Name)
 			if secrets.IsSecretManaged(*secret) {
-				fmt.Println("Secret is managed")
+				fmt.Print("Added, ")
+				fmt.Println("Found secret", secret.Name)
 			}
 		},
 		UpdateFunc: func(_, newObj interface{}) {
@@ -62,10 +61,9 @@ func main() {
 				return
 			}
 
-			fmt.Println("Secret updated ", secret.Name)
-
 			if secrets.IsSecretManaged(*secret) {
-				fmt.Println("Secret is managed")
+				fmt.Print("Updated, ")
+				fmt.Println("Found secret", secret.Name)
 			}
 		},
 	}

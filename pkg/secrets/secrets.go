@@ -54,15 +54,31 @@ func HandleSecrets(clientset *kubernetes.Clientset, secret v1.Secret) {
 		klog.Info(fmt.Sprintf("Secret %s already handled", secret.Name))
 		return
 	}
-	randomPass := generateRandomSecret(20, true)
+	randomPass := generateRandomSecret(secret.Annotations)
 	patchSecret(clientset, secret, getRandomSecretKey(secret), randomPass)
 }
 
-func generateRandomSecret(length int, specialChar bool) string {
+func generateRandomSecret(annotations map[string]string) string {
+
+	fmt.Println("Generating random secret")
+	fmt.Printf("Annotations: %v\n", annotations)
+	// Check if the annotation is nil or empty
 	pattern := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	if specialChar {
+
+	// Check if the special char annotation is present and different from false
+	// Then add special characters to the pattern otherwise use the default pattern
+	if annotations[types.OperatorSpecialCharAnnotation] != "" || annotations[types.OperatorSpecialCharAnnotation] != "false" {
 		pattern += "!@#$%^&*()_+"
 	}
+
+	var length int
+
+	// Check if the length annotation is present
+	// If it is, convert the value to an integer
+	if annotations[types.OperatorLengthAnnotation] != "" {
+		fmt.Sscanf(annotations[types.OperatorLengthAnnotation], "%d", &length)
+	}
+	fmt.Printf("Length: %d\n", length)
 
 	rand.Seed(uint64(time.Now().UnixNano()))
 
