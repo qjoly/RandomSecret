@@ -1,38 +1,36 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/qjoly/randomsecret/pkg/kube"
 	"github.com/qjoly/randomsecret/pkg/secrets"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog"
 )
 
 func main() {
+
 	k := kube.NewClient()
+
+	k.LeaderElection()
 	clientset := k.Clientset
+	err := reconcile(clientset)
+	if err != nil {
+		klog.Info(fmt.Sprintf("Error reconciling secrets: %v", err))
+	}
 
-	// kubeSecrets, err := clientset.CoreV1().Secrets("").List(context.Background(), metav1.ListOptions{})
-	// if err != nil {
-	// 	klog.Info(fmt.Sprintf("Error listing secrets: %v", err))
-	// }
-
-	// klog.Info(fmt.Sprintf("Found %d secrets\n", len(kubeSecrets.Items)))
-	// for _, secret := range kubeSecrets.Items {
-	// 	if len(secret.Annotations) > 0 {
-
-	// 		if secrets.IsSecretManaged(secret) {
-	// 			secrets.HandleSecrets(clientset, secret)
-	// 		}
-	// 	}
-	// }
+	startTime := time.Now()
 
 	secretWatch := cache.NewListWatchFromClient(
 		clientset.CoreV1().RESTClient(),
@@ -41,19 +39,39 @@ func main() {
 		fields.Everything(),
 	)
 
+	working := false
+
 	secretHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
+			if !k.CheckLeader() {
+				k.WaitForLeader()
+			}
 			secret, ok := obj.(*v1.Secret)
 			if !ok {
 				log.Println("Failed to cast to Secret")
 				return
 			}
+
+			if secret.CreationTimestamp.Time.Before(startTime) {
+				return
+			}
+
 			if secrets.IsSecretManaged(*secret) {
-				fmt.Print("Added, ")
-				fmt.Println("Found secret", secret.Name)
+
+				working = true
+
+				klog.Info(fmt.Sprintf("Added, Found secret %s", secret.Name))
+				err = reconcile(clientset)
+				if err != nil {
+					klog.Info(fmt.Sprintf("Error reconciling secrets: %v", err))
+				}
+				working = false
 			}
 		},
 		UpdateFunc: func(_, newObj interface{}) {
+			if !k.CheckLeader() {
+				k.WaitForLeader()
+			}
 			// We only care about the new object
 			secret, ok := newObj.(*v1.Secret)
 			if !ok {
@@ -62,137 +80,55 @@ func main() {
 			}
 
 			if secrets.IsSecretManaged(*secret) {
-				fmt.Print("Updated, ")
-				fmt.Println("Found secret", secret.Name)
+				working = true
+				klog.Info(fmt.Sprintf("Updated, Found secret %s", secret.Name))
+				err = reconcile(clientset)
+				if err != nil {
+					klog.Info(fmt.Sprintf("Error reconciling secrets: %v", err))
+				}
+				working = false
 			}
 		},
 	}
 
 	secretInformer := cache.NewSharedInformer(secretWatch, &v1.Secret{}, 0)
 	secretInformer.AddEventHandler(secretHandler)
-
-	stop := make(chan struct{})
-	defer close(stop)
-
-	secretInformer.Run(stop)
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
 	endSignal := make(chan struct{})
+	go secretInformer.Run(endSignal)
+	defer close(endSignal)
 
-	go func() {
-		<-c
-		endSignal <- struct{}{}
-	}()
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	<-endSignal
+	<-sigChan
+	endSignal <- struct{}{}
+	fmt.Println("Received shutdown signal, exiting...")
+
+	for range [10]int{} {
+		if !working {
+			klog.Warning("Job ended, terminating...")
+			break
+		}
+
+		time.Sleep(2 * time.Second)
+		klog.Warning("Waiting for job to end...")
+	}
 
 }
 
-// func reconcile() {
+func reconcile(clientset *kubernetes.Clientset) error {
 
-// 	secretWatch := cache.NewListWatchFromClient(
-// 		clientset.CoreV1().RESTClient(),
-// 		"secrets",
-// 		metav1.NamespaceAll,
-// 		fields.Everything(),
-// 	)
+	kubeSecrets, err := clientset.CoreV1().Secrets("").List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		klog.Info(fmt.Sprintf("Error listing secrets: %v", err))
+		return err
+	}
 
-// 	secretHandler := cache.ResourceEventHandlerFuncs{
-// 		AddFunc: func(obj interface{}) {
-// 			secret, ok := obj.(*v1.Secret)
-// 			if !ok {
-// 				log.Println("Failed to cast to Secret")
-// 				return
-// 			}
-
-// 			shouldReconcile := false
-// 			for key := range secret.Labels {
-// 				selector := strings.Split(users.SecretUserSelector, "=")
-// 				if key == selector[0] {
-// 					klog.Infof("Secret %s has been added", secret.Name)
-// 					shouldReconcile = true
-// 					break
-// 				}
-// 			}
-// 			if !shouldReconcile {
-// 				return
-// 			}
-
-// 			if runningRoutine {
-// 				klog.Info("Already running a routine, skipping")
-// 				return
-// 			}
-// 			runningRoutine = true
-// 			err := reconcileMinio(minioCredentials)
-// 			if err != nil {
-// 				klog.Errorf("Error handling Secret: %s", err.Error())
-// 				os.Exit(1)
-// 			}
-// 			runningRoutine = false
-// 		},
-// 		UpdateFunc: func(_, newObj interface{}) {
-// 			secret, ok := newObj.(*v1.Secret)
-// 			if !ok {
-// 				log.Println("Failed to cast to Secret")
-// 				return
-// 			}
-
-// 			shouldReconcile := false
-// 			for key := range secret.Labels {
-// 				selector := strings.Split(users.SecretUserSelector, "=")
-// 				if key == selector[0] {
-// 					klog.Infof("Secret %s has been updated", secret.Name)
-// 					shouldReconcile = true
-// 					break
-// 				}
-// 			}
-// 			if !shouldReconcile {
-// 				return
-// 			}
-
-// 			if runningRoutine {
-// 				klog.Info("Already running a routine, skipping")
-// 				return
-// 			}
-// 			runningRoutine = true
-// 			err := reconcileMinio(minioCredentials)
-// 			if err != nil {
-// 				klog.Errorf("Error handling Secret: %s", err.Error())
-// 				os.Exit(1)
-// 			}
-// 			runningRoutine = false
-// 		},
-// 		DeleteFunc: func(obj interface{}) {
-// 			secret, ok := obj.(*v1.Secret)
-// 			if !ok {
-// 				log.Println("Failed to cast to Secret")
-// 				return
-// 			}
-
-// 			shouldReconcile := false
-// 			for key := range secret.Labels {
-// 				selector := strings.Split(users.SecretUserSelector, "=")
-// 				if key == selector[0] {
-// 					klog.Infof("Secret %s has been deleted", secret.Name)
-// 					shouldReconcile = true
-// 					break
-// 				}
-// 			}
-// 			if !shouldReconcile {
-// 				return
-// 			}
-// 			if runningRoutine {
-// 				klog.Info("Already running a routine, skipping")
-// 				return
-// 			}
-// 			runningRoutine = true
-// 			err := reconcileMinio(minioCredentials)
-// 			if err != nil {
-// 				klog.Errorf("Error handling Secret: %s", err.Error())
-// 				os.Exit(1)
-// 			}
-// 			runningRoutine = false
-// 		},
-// 	}
-// }
+	klog.Info(fmt.Sprintf("Found %d secrets\n", len(kubeSecrets.Items)))
+	for _, secret := range kubeSecrets.Items {
+		if secrets.IsSecretManaged(secret) {
+			secrets.HandleSecrets(clientset, secret)
+		}
+	}
+	return nil
+}

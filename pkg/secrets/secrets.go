@@ -60,8 +60,7 @@ func HandleSecrets(clientset *kubernetes.Clientset, secret v1.Secret) {
 
 func generateRandomSecret(annotations map[string]string) string {
 
-	fmt.Println("Generating random secret")
-	fmt.Printf("Annotations: %v\n", annotations)
+	klog.Info("Generating random secret")
 	// Check if the annotation is nil or empty
 	pattern := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
@@ -78,7 +77,6 @@ func generateRandomSecret(annotations map[string]string) string {
 	if annotations[types.OperatorLengthAnnotation] != "" {
 		fmt.Sscanf(annotations[types.OperatorLengthAnnotation], "%d", &length)
 	}
-	fmt.Printf("Length: %d\n", length)
 
 	rand.Seed(uint64(time.Now().UnixNano()))
 

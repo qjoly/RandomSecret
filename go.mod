@@ -10,7 +10,25 @@ require (
 	k8s.io/klog v1.0.0
 )
 
-require golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
+require (
+	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
+	sigs.k8s.io/controller-runtime v0.20.0
+)
+
+require (
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/google/btree v1.1.3 // indirect
+	github.com/prometheus/client_golang v1.19.1 // indirect
+	github.com/prometheus/client_model v0.6.1 // indirect
+	github.com/prometheus/common v0.55.0 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
+	golang.org/x/sync v0.10.0 // indirect
+	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
+	k8s.io/apiextensions-apiserver v0.32.0 // indirect
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
