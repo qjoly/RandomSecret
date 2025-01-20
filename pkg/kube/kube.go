@@ -9,6 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/qjoly/randomsecret/pkg/secrets"
+	"github.com/qjoly/randomsecret/pkg/types"
+	v1 "k8s.io/api/core/v1"
+	kerror "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -18,13 +24,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// init client
 type (
 	KubeClient struct {
-		Clientset *kubernetes.Clientset
-		Cfg       *rest.Config
-		el        *leaderelection.LeaderElector
-		namespace string
+		Clientset     *kubernetes.Clientset
+		Cfg           *rest.Config
+		el            *leaderelection.LeaderElector
+		namespace     string
+		DynamicClient dynamic.Interface
 	}
 )
 
@@ -45,12 +51,17 @@ func NewClient() *KubeClient {
 
 	client.Clientset, err = kubernetes.NewForConfig(client.Cfg)
 	if err != nil {
-		klog.Info(fmt.Sprintf("Error creating clientset: %v", err))
+		klog.Fatal(fmt.Sprintf("Error creating clientset: %v", err))
 	}
 
 	client.namespace = os.Getenv("NAMESPACE")
 	if client.namespace == "" {
 		client.namespace = "default"
+	}
+
+	client.DynamicClient, err = dynamic.NewForConfig(client.Cfg)
+	if err != nil {
+		klog.Fatal(fmt.Sprintf("Failed to create dynamic client: %v", err))
 	}
 
 	return client
@@ -91,7 +102,7 @@ func (k *KubeClient) LeaderElection() {
 		panic(err.Error())
 	}
 
-	var RenewDeadline = time.Second * 5
+	var RenewDeadline = time.Second * 2
 	l, err := rl.NewFromKubeconfig(
 		rl.LeasesResourceLock,
 		k.namespace,
@@ -108,9 +119,9 @@ func (k *KubeClient) LeaderElection() {
 
 	el, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
 		Lock:          l,
-		LeaseDuration: time.Second * 10,
+		LeaseDuration: time.Second * 3,
 		RenewDeadline: RenewDeadline,
-		RetryPeriod:   time.Second * 2,
+		RetryPeriod:   time.Second * 1,
 		Name:          lockName,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) { println("I am the leader!") },
@@ -127,11 +138,11 @@ func (k *KubeClient) LeaderElection() {
 	k.el = el
 
 	for !k.CheckLeader() {
-		fmt.Println("Waiting to become leader")
-		time.Sleep(2 * time.Second)
+		klog.Info("Waiting to become leader")
+		time.Sleep(200 * time.Millisecond)
 	}
 
-	fmt.Println("Finished leader election")
+	klog.Info("Finished leader election")
 }
 
 func (k *KubeClient) CheckLeader() bool {
@@ -140,7 +151,48 @@ func (k *KubeClient) CheckLeader() bool {
 
 func (k *KubeClient) WaitForLeader() {
 	for !k.el.IsLeader() {
-		fmt.Println("Waiting to become leader")
+		klog.Info("Waiting to become leader")
 		time.Sleep(2 * time.Second)
 	}
+}
+
+func (k *KubeClient) CreateSecret(randomSecret types.RandomSecret) error {
+
+	spec := make(map[string]string)
+	spec[randomSecret.Key] = secrets.GenerateRandomSecret(int(randomSecret.Length), randomSecret.SpecialChar)
+
+	for k, v := range randomSecret.Static {
+		spec[k] = v
+	}
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      randomSecret.Name,
+			Namespace: randomSecret.NameSpace,
+		},
+		StringData: spec,
+	}
+
+	clientset := k.Clientset
+
+	_, err := clientset.CoreV1().Secrets(randomSecret.NameSpace).Create(context.Background(), secret, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create secret: %v", err)
+	}
+
+	fmt.Printf("Secret %s created in namespace %s\n", randomSecret.Name, randomSecret.NameSpace)
+	return nil
+}
+
+func (k *KubeClient) IsSecretCreated(secretName string, namespace string) (bool, error) {
+
+	clientset := k.Clientset
+	_, err := clientset.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	if err != nil {
+		if kerror.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

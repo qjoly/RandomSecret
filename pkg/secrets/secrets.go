@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/qjoly/randomsecret/pkg/types"
@@ -54,38 +55,54 @@ func HandleSecrets(clientset *kubernetes.Clientset, secret v1.Secret) {
 		klog.Info(fmt.Sprintf("Secret %s already handled", secret.Name))
 		return
 	}
-	randomPass := generateRandomSecret(secret.Annotations)
-	patchSecret(clientset, secret, getRandomSecretKey(secret), randomPass)
-}
-
-func generateRandomSecret(annotations map[string]string) string {
-
-	klog.Info("Generating random secret")
-	// Check if the annotation is nil or empty
-	pattern := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	// Check if the special char annotation is present and different from false
-	// Then add special characters to the pattern otherwise use the default pattern
-	if annotations[types.OperatorSpecialCharAnnotation] != "" || annotations[types.OperatorSpecialCharAnnotation] != "false" {
-		pattern += "!@#$%^&*()_+"
-	}
 
 	var length int
 
-	// Check if the length annotation is present
-	// If it is, convert the value to an integer
-	if annotations[types.OperatorLengthAnnotation] != "" {
-		fmt.Sscanf(annotations[types.OperatorLengthAnnotation], "%d", &length)
+	if secret.Annotations[types.OperatorLengthAnnotation] == "" {
+		length = 32
+	} else {
+		var err error
+		length, err = strconv.Atoi(secret.Annotations[types.OperatorLengthAnnotation])
+		if err != nil {
+			klog.Infof("Invalid length annotation, using default length 32: %v", err)
+			length = 32
+		}
 	}
+
+	var specialChar bool
+
+	if secret.Annotations[types.OperatorSpecialCharAnnotation] == "" {
+		specialChar = true
+	} else {
+		var err error
+		specialChar, err = strconv.ParseBool(secret.Annotations[types.OperatorSpecialCharAnnotation])
+		if err != nil {
+			klog.Infof("Invalid specialChar annotation, using default specialChar true: %v", err)
+			specialChar = true
+		}
+	}
+
+	randomPass := GenerateRandomSecret(length, specialChar)
+	patchSecret(clientset, secret, getRandomSecretKey(secret), randomPass)
+}
+
+func GenerateRandomSecret(length int, specialChar bool) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const special = "!@#$%^&*()-_=+[]{}|;:,.<>?/~`"
 
 	rand.Seed(uint64(time.Now().UnixNano()))
 
-	secret := make([]byte, length)
-	for i := range secret {
-		secret[i] = pattern[rand.Intn(len(pattern))]
+	charset := letters
+	if specialChar {
+		charset += special
 	}
 
-	return string(secret)
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+
+	return string(b)
 }
 
 // patchSecret updates the secret with the new value
@@ -105,4 +122,19 @@ func patchSecret(clientset *kubernetes.Clientset, secret v1.Secret, key string, 
 
 	klog.Info(fmt.Sprintf("Secret %s patched with key %s", secret.Name, key))
 
+}
+
+func ReconcileSecrets(clientset *kubernetes.Clientset) error {
+	secretsList, err := clientset.CoreV1().Secrets("").List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		klog.Infof("Error listing secrets: %v", err)
+		return err
+	}
+	klog.Infof("Found %d secrets\n", len(secretsList.Items))
+	for _, secret := range secretsList.Items {
+		if IsSecretManaged(secret) {
+			HandleSecrets(clientset, secret)
+		}
+	}
+	return nil
 }
