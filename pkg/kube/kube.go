@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	identity = fmt.Sprintf("%d", os.Getpid())
+	identity = os.Getenv("HOSTNAME")
 )
 
 func NewClient() *KubeClient {
