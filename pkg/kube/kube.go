@@ -102,7 +102,7 @@ func (k *KubeClient) LeaderElection() {
 		panic(err.Error())
 	}
 
-	var RenewDeadline = time.Second * 2
+	var RenewDeadline = time.Second * 10
 	l, err := rl.NewFromKubeconfig(
 		rl.LeasesResourceLock,
 		k.namespace,
@@ -119,9 +119,9 @@ func (k *KubeClient) LeaderElection() {
 
 	el, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
 		Lock:          l,
-		LeaseDuration: time.Second * 3,
+		LeaseDuration: time.Second * 15,
 		RenewDeadline: RenewDeadline,
-		RetryPeriod:   time.Second * 1,
+		RetryPeriod:   time.Second * 5,
 		Name:          lockName,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) { println("I am the leader!") },
