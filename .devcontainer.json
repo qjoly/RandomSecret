@@ -1,7 +1,7 @@
 {
     "image": "mcr.microsoft.com/devcontainers/go",
-    "remoteUser": "0",
-    "containerUser": "0",
+    "remoteUser": "root",
+    "containerUser": "root",
     "customizations": {
         "vscode": {
             "extensions": [
