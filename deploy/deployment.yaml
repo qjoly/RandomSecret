@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: random-secret-operator
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: random-secret-operator
+  template:
+    metadata:
+      labels:
+        app: random-secret-operator
+    spec:
+      serviceAccountName: random-secret-operator
+      containers:
+        - name: random-secret-operator
+          image: ghcr.io/qjoly/randomsecret:dev
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 443
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+          # env:
+          #   - name: WATCH_NAMESPACE
+          #     valueFrom:
+          #       fieldRef:
+          #         fieldPath: metadata.namespace
+          #   - name: POD_NAME
+          #     valueFrom:
+          #       fieldRef:
+          #         fieldPath: metadata.name
+          #   - name: OPERATOR_NAME
+          #     value: "random-secret-operator"
