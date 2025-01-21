@@ -42,10 +42,7 @@ func IsSecretManaged(secret v1.Secret) bool {
 
 func isAlreadyHandled(secret v1.Secret) bool {
 	_, ok := secret.Data[getRandomSecretKey(secret)]
-	if !ok {
-		return false
-	}
-	return true
+	return ok
 }
 
 func HandleSecrets(clientset *kubernetes.Clientset, secret v1.Secret) {
@@ -56,34 +53,13 @@ func HandleSecrets(clientset *kubernetes.Clientset, secret v1.Secret) {
 		return
 	}
 
-	var length int
-
-	if secret.Annotations[types.OperatorLengthAnnotation] == "" {
-		length = 32
-	} else {
-		var err error
-		length, err = strconv.Atoi(secret.Annotations[types.OperatorLengthAnnotation])
-		if err != nil {
-			klog.Infof("Invalid length annotation, using default length 32: %v", err)
-			length = 32
-		}
+	newSecret, err := MutateSecret(secret)
+	if err != nil {
+		klog.Info(fmt.Sprintf("Error mutating secret %s: %v", secret.Name, err))
+		return
 	}
 
-	var specialChar bool
-
-	if secret.Annotations[types.OperatorSpecialCharAnnotation] == "" {
-		specialChar = true
-	} else {
-		var err error
-		specialChar, err = strconv.ParseBool(secret.Annotations[types.OperatorSpecialCharAnnotation])
-		if err != nil {
-			klog.Infof("Invalid specialChar annotation, using default specialChar true: %v", err)
-			specialChar = true
-		}
-	}
-
-	randomPass := GenerateRandomSecret(length, specialChar)
-	patchSecret(clientset, secret, getRandomSecretKey(secret), randomPass)
+	patchSecret(clientset, newSecret)
 }
 
 func GenerateRandomSecret(length int, specialChar bool) string {
@@ -106,21 +82,14 @@ func GenerateRandomSecret(length int, specialChar bool) string {
 }
 
 // patchSecret updates the secret with the new value
-func patchSecret(clientset *kubernetes.Clientset, secret v1.Secret, key string, value string) {
-
-	// If the secret data map is nil, create a new map
-	if secret.Data == nil {
-		secret.Data = make(map[string][]byte)
-	}
-
-	secret.Data[key] = []byte(value)
+func patchSecret(clientset *kubernetes.Clientset, secret v1.Secret) {
 
 	_, err := clientset.CoreV1().Secrets(secret.Namespace).Update(context.Background(), &secret, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Info(fmt.Sprintf("Error patching secret %s: %v", secret.Name, err))
 	}
 
-	klog.Info(fmt.Sprintf("Secret %s patched with key %s", secret.Name, key))
+	klog.Info(fmt.Sprintf("Secret %s patched", secret.Name))
 
 }
 
@@ -137,4 +106,39 @@ func ReconcileSecrets(clientset *kubernetes.Clientset) error {
 		}
 	}
 	return nil
+}
+
+func MutateSecret(secret v1.Secret) (v1.Secret, error) {
+	secretCopy := secret.DeepCopy()
+	var length int
+
+	if secretCopy.Annotations[types.OperatorLengthAnnotation] == "" {
+		length = 32
+	} else {
+		var err error
+		length, err = strconv.Atoi(secretCopy.Annotations[types.OperatorLengthAnnotation])
+		if err != nil {
+			klog.Infof("Invalid length annotation, using default length 32: %v", err)
+			length = 32
+		}
+	}
+
+	var specialChar bool
+
+	if secret.Annotations[types.OperatorSpecialCharAnnotation] == "" {
+		specialChar = true
+	} else {
+		var err error
+		specialChar, err = strconv.ParseBool(secret.Annotations[types.OperatorSpecialCharAnnotation])
+		if err != nil {
+			klog.Infof("Invalid specialChar annotation, using default specialChar true: %v", err)
+			specialChar = true
+			return v1.Secret{}, err
+		}
+	}
+
+	randomPass := GenerateRandomSecret(length, specialChar)
+	secretCopy.Data[getRandomSecretKey(secret)] = []byte(randomPass)
+
+	return *secretCopy, nil
 }

@@ -93,6 +93,7 @@ func ReconcileRandomSecrets(k *kube.KubeClient, randomSecretGVR schema.GroupVers
 			updateStatusReady(randomSecret, k, true)
 		} else {
 			klog.Infof("Secret %s already exists", randomSecret.Name)
+			updateStatusReady(randomSecret, k, true)
 		}
 
 	}
