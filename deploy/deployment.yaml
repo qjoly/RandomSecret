@@ -19,13 +19,14 @@ spec:
           image: ghcr.io/qjoly/randomsecret:dev
           imagePullPolicy: Always
           ports:
-            - containerPort: 443
+            - containerPort: 8080
+              name: http
           resources:
             limits:
-              memory: "128Mi"
+              memory: "512Mi"
               cpu: "500m"
             requests:
-              memory: "64Mi"
+              memory: "250Mi"
               cpu: "250m"
           # env:
           #   - name: WATCH_NAMESPACE
