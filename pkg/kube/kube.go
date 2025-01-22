@@ -126,7 +126,7 @@ func (k *KubeClient) LeaderElection() {
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) { println("I am the leader!") },
 			OnStoppedLeading: func() { println("I am not the leader anymore!") },
-			OnNewLeader:      func(identity string) { fmt.Printf("the leader is %s\n", identity) },
+			OnNewLeader:      func(identity string) { klog.Infof("the leader is %s\n", identity) },
 		},
 	})
 	if err != nil {

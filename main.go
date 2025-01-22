@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/qjoly/randomsecret/pkg/kube"
+	"github.com/qjoly/randomsecret/pkg/mutating"
 	"github.com/qjoly/randomsecret/pkg/randomsecrets"
 	"github.com/qjoly/randomsecret/pkg/secrets"
 	"github.com/qjoly/randomsecret/pkg/types"
@@ -32,6 +33,8 @@ func main() {
 	k.LeaderElection()
 	clientset := k.Clientset
 	dynamicClient := k.DynamicClient
+
+	go mutating.Run()
 
 	secrets.ReconcileSecrets(clientset)
 	randomsecrets.ReconcileRandomSecrets(k, types.RandomSecretGVR)
