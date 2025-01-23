@@ -39,6 +39,10 @@ func Run() {
 		admissionResponse := admissionv1.AdmissionResponse{
 			UID:     admissionReview.Request.UID,
 			Allowed: true,
+			PatchType: func() *admissionv1.PatchType {
+				pt := admissionv1.PatchTypeJSONPatch
+				return &pt
+			}(),
 		}
 
 		secret := &corev1.Secret{}
@@ -56,10 +60,6 @@ func Run() {
 			}
 
 			admissionResponse.Patch = patchBytes
-			admissionResponse.PatchType = func() *admissionv1.PatchType {
-				pt := admissionv1.PatchTypeJSONPatch
-				return &pt
-			}()
 
 			admissionReview.Response = &admissionResponse
 
