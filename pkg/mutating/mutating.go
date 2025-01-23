@@ -56,8 +56,10 @@ func Run() {
 			}
 
 			admissionResponse.Patch = patchBytes
+			admissionResponse.PatchType = nil
 			admissionReview.Response = &admissionResponse
 
+			fmt.Println(admissionReview.Response)
 			if err := json.NewEncoder(w).Encode(admissionReview); err != nil {
 				http.Error(w, fmt.Sprintf("Error encoding response: %v", err), http.StatusInternalServerError)
 				return
