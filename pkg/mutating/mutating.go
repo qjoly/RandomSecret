@@ -8,6 +8,8 @@ import (
 	"github.com/qjoly/randomsecret/pkg/secrets"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -26,6 +28,7 @@ func init() {
 func Run() {
 	http.HandleFunc("/mutate", func(w http.ResponseWriter, r *http.Request) {
 		var admissionReview admissionv1.AdmissionReview
+		var err error
 		if err := json.NewDecoder(r.Body).Decode(&admissionReview); err != nil {
 			http.Error(w, fmt.Sprintf("Error decoding request: %v", err), http.StatusBadRequest)
 			return
@@ -35,14 +38,20 @@ func Run() {
 
 		decoder := admission.NewDecoder(runtime.NewScheme())
 
+		patches := []map[string]interface{}{
+			{
+				"op":    "add",
+				"path":  "/data/key",
+				"value": "toto",
+			},
+		}
+
 		var patchBytes []byte
+		patchType := admissionv1.PatchTypeJSONPatch
 		admissionResponse := admissionv1.AdmissionResponse{
-			UID:     admissionReview.Request.UID,
-			Allowed: true,
-			PatchType: func() *admissionv1.PatchType {
-				pt := admissionv1.PatchTypeJSONPatch
-				return &pt
-			}(),
+			UID:       admissionReview.Request.UID,
+			Allowed:   true,
+			PatchType: &patchType,
 		}
 
 		secret := &corev1.Secret{}
@@ -68,13 +77,23 @@ func Run() {
 			return
 		}
 
-		patch, err := secrets.MutateSecret(*secret)
+		admissionResponse.Patch, err = json.Marshal(patches)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Error mutating secret: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Error marshalling patch: %v", err), http.StatusInternalServerError)
 			return
 		}
 
-		patchBytes, err = json.Marshal(patch)
+		admissionResponse.Result = &metav1.Status{
+			Status: metav1.StatusSuccess,
+		}
+
+		// patch, err := secrets.MutateSecret(*secret)
+		// if err != nil {
+		// 	http.Error(w, fmt.Sprintf("Error mutating secret: %v", err), http.StatusInternalServerError)
+		// 	return
+		// }
+
+		patchBytes, err = json.Marshal(patches)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error marshalling patch: %v", err), http.StatusInternalServerError)
 			return
