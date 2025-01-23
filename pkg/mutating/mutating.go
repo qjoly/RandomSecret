@@ -31,6 +31,8 @@ func Run() {
 			return
 		}
 
+		klog.Infof("Received request: %s in namespace %s", admissionReview.Request.Name, admissionReview.Request.Namespace)
+
 		decoder := admission.NewDecoder(runtime.NewScheme())
 
 		var patchBytes []byte
@@ -46,10 +48,16 @@ func Run() {
 		}
 
 		if !secrets.IsSecretManaged(*secret) {
-			klog.Info("Secret is not managed")
+			klog.Infof("Secret %s is not managed, returning", secret.Name)
+			patchBytes, err := json.Marshal(secret)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Error marshalling patch: %v", err), http.StatusInternalServerError)
+				return
+			}
 
-			admissionReview.Response = &admissionResponse
-			if err := json.NewEncoder(w).Encode(admissionReview); err != nil {
+			admissionResponse.Patch = patchBytes
+
+			if err := json.NewEncoder(w).Encode(admissionResponse); err != nil {
 				http.Error(w, fmt.Sprintf("Error encoding response: %v", err), http.StatusInternalServerError)
 				return
 			}
