@@ -69,8 +69,8 @@ func Run() {
 		}
 	})
 
-	klog.Info("Starting webhook server on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	klog.Info("Starting webhook server on :443")
+	if err := http.ListenAndServeTLS(":443", "/certs/tls.crt", "/certs/tls.key", nil); err != nil {
 		klog.Errorf("Failed to start server: %v\n", err)
 	}
 }
