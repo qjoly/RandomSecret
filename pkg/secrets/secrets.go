@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"time"
@@ -60,6 +61,10 @@ func HandleSecrets(clientset *kubernetes.Clientset, secret v1.Secret) {
 	}
 
 	patchSecret(clientset, newSecret)
+}
+
+func GeneratePatch(secret v1.Secret) []byte {
+	return []byte(fmt.Sprintf(`[{"op": "add", "path": "/data/%s", "value": "%s"}]`, base64.StdEncoding.EncodeToString([]byte(getRandomSecretKey(secret))), string(secret.Data[getRandomSecretKey(secret)])))
 }
 
 func GenerateRandomSecret(length int, specialChar bool) string {
