@@ -60,15 +60,11 @@ func Run() {
 			}
 
 			admissionResponse.Patch = patchBytes
-
 			admissionReview.Response = &admissionResponse
-
-			fmt.Println(string(admissionReview.Response.Patch))
 			if err := json.NewEncoder(w).Encode(admissionReview); err != nil {
 				http.Error(w, fmt.Sprintf("Error encoding response: %v", err), http.StatusInternalServerError)
 				return
 			}
-
 			return
 		}
 
@@ -85,8 +81,11 @@ func Run() {
 		}
 
 		admissionResponse.Patch = patchBytes
-
 		admissionReview.Response = &admissionResponse
+
+		klog.Infof("Patching secret %s in namespace %s", secret.Name, secret.Namespace)
+		klog.Infof("Response: %s", string(admissionReview.Response.Patch))
+
 		if err := json.NewEncoder(w).Encode(admissionReview); err != nil {
 			http.Error(w, fmt.Sprintf("Error encoding response: %v", err), http.StatusInternalServerError)
 			return
