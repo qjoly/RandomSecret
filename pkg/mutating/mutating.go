@@ -33,6 +33,12 @@ func Run() {
 
 		decoder := admission.NewDecoder(runtime.NewScheme())
 
+		var patchBytes []byte
+		admissionResponse := admissionv1.AdmissionResponse{
+			UID:     admissionReview.Request.UID,
+			Allowed: true,
+		}
+
 		secret := &corev1.Secret{}
 		if err := decoder.DecodeRaw(admissionReview.Request.Object, secret); err != nil {
 			http.Error(w, fmt.Sprintf("Error decoding secret: %v", err), http.StatusBadRequest)
@@ -41,6 +47,13 @@ func Run() {
 
 		if !secrets.IsSecretManaged(*secret) {
 			klog.Info("Secret is not managed")
+
+			admissionReview.Response = &admissionResponse
+			if err := json.NewEncoder(w).Encode(admissionReview); err != nil {
+				http.Error(w, fmt.Sprintf("Error encoding response: %v", err), http.StatusInternalServerError)
+				return
+			}
+
 			return
 		}
 
@@ -50,17 +63,13 @@ func Run() {
 			return
 		}
 
-		patchBytes, err := json.Marshal(patch)
+		patchBytes, err = json.Marshal(patch)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error marshalling patch: %v", err), http.StatusInternalServerError)
 			return
 		}
 
-		admissionResponse := admissionv1.AdmissionResponse{
-			UID:     admissionReview.Request.UID,
-			Allowed: true,
-			Patch:   patchBytes,
-		}
+		admissionResponse.Patch = patchBytes
 
 		admissionReview.Response = &admissionResponse
 		if err := json.NewEncoder(w).Encode(admissionReview); err != nil {
