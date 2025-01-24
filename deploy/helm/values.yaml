@@ -61,6 +61,8 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
+# Secret name used for storing the TLS certificates
+secretName: random-secret-operator
 volumes:
   - name: tls-certificates
     secret:
