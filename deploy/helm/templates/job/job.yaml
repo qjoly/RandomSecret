@@ -36,7 +36,7 @@ spec:
                 - name: random-secret.a-cup-of.coffee
                   clientConfig:
                     service:
-                      name: random-secret-operator
+                      name: {{ include "random-operator.fullname" . }}
                       namespace: $NAMESPACE
                       path: "/mutate"
                     caBundle: $(cat ca.crt | base64 | tr -d '\n')
