@@ -28,7 +28,7 @@ func init() {
 func Run() {
 	http.HandleFunc("/mutate", func(w http.ResponseWriter, r *http.Request) {
 		var admissionReview admissionv1.AdmissionReview
-		var err error
+		// var err error
 		if err := json.NewDecoder(r.Body).Decode(&admissionReview); err != nil {
 			http.Error(w, fmt.Sprintf("Error decoding request: %v", err), http.StatusBadRequest)
 			return
@@ -38,7 +38,7 @@ func Run() {
 
 		decoder := admission.NewDecoder(runtime.NewScheme())
 
-		var patchBytes []byte
+		// var patchBytes []byte
 		patchType := admissionv1.PatchTypeJSONPatch
 		admissionResponse := admissionv1.AdmissionResponse{
 			UID:       admissionReview.Request.UID,
@@ -69,24 +69,19 @@ func Run() {
 			return
 		}
 
-		patches := secrets.GeneratePatch(*secret)
-		admissionResponse.Patch, err = json.Marshal(patches)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error marshalling patch: %v", err), http.StatusInternalServerError)
-			return
-		}
+		admissionResponse.Patch = secrets.GeneratePatch(*secret)
 
 		admissionResponse.Result = &metav1.Status{
 			Status: metav1.StatusSuccess,
 		}
 
-		patchBytes, err = json.Marshal(patches)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error marshalling patch: %v", err), http.StatusInternalServerError)
-			return
-		}
+		// patchBytes, err = json.Marshal(patches)
+		// if err != nil {
+		// 	http.Error(w, fmt.Sprintf("Error marshalling patch: %v", err), http.StatusInternalServerError)
+		// 	return
+		// }
 
-		admissionResponse.Patch = patchBytes
+		// admissionResponse.Patch = patchBytes
 		admissionReview.Response = &admissionResponse
 
 		klog.Infof("Patching secret %s in namespace %s", secret.Name, secret.Namespace)
