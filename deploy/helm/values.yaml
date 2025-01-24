@@ -14,6 +14,10 @@ env:
     value: "/certs/tls.crt"
   - name: TLS_KEY_PATH
     value: "/certs/tls.key"
+  - name: NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
 
 imagePullSecrets: []
 nameOverride: ""
