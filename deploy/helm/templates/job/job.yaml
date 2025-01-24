@@ -1,0 +1,51 @@
+---
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "random-operator.fullname" . }}-job
+  namespace: default
+spec:
+  template:
+    metadata:
+      name: {{ include "random-operator.fullname" . }}
+    spec:
+      serviceAccountName: {{ include "random-operator.fullname" . }}-job-sa
+      containers:
+        - name: webhook-creator
+          image: nixery.dev/shell/kubectl/openssl
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              openssl genrsa -out ca.key 4096
+              openssl req -new -x509 -days 365 -key ca.key -subj "/C=FR/ST=01/L=Lyon/O=Coffee Inc." -out ca.crt
+              SERVICE=random-secret-operator
+              NAMESPACE={{ .Release.Namespace }}
+              RELEASE_NAME=random-secret-operator
+              openssl req -newkey rsa:4096 -nodes -keyout tls.key -subj "/C=FR/ST=01/L=Lyon/O=Coffee Inc./CN=$SERVICE.$NAMESPACE.svc.cluster.local" -out tls.csr
+              openssl x509 -req -extfile <(printf "subjectAltName=DNS:$SERVICE.$NAMESPACE.svc.cluster.local,DNS:$SERVICE.$NAMESPACE.svc.cluster,DNS:$SERVICE.$NAMESPACE.svc,DNS:$SERVICE.$NAMESPACE.svc,DNS:$SERVICE.$NAMESPACE,DNS:$SERVICE") -days 3650 -in tls.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out tls.crt
+              kubectl create secret tls $RELEASE_NAME --cert=tls.crt --key=tls.key -n $NAMESPACE
+              cat <<EOF | kubectl create -f -
+              apiVersion: admissionregistration.k8s.io/v1
+              kind: MutatingWebhookConfiguration
+              metadata:
+                name: random-secret-mutating-webhook
+              webhooks:
+                - name: random-secret.a-cup-of.coffee
+                  clientConfig:
+                    service:
+                      name: random-secret-operator
+                      namespace: $NAMESPACE
+                      path: "/mutate"
+                    caBundle: $(cat ca.crt | base64 | tr -d '\n')
+                  rules:
+                    - operations: ["CREATE", "UPDATE"]
+                      apiGroups: [""]
+                      apiVersions: ["v1"]
+                      resources: ["secrets"]
+                  admissionReviewVersions: ["v1"]
+                  sideEffects: None
+              EOF
+      restartPolicy: OnFailure
