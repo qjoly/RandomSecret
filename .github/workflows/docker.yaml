@@ -1,0 +1,55 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+      - init
+    tags:
+      - v*
+permissions:
+  contents: read
+  packages: write
+
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          password: ${{ secrets.TOKEN}}
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        if: github.event_name == 'workflow_dispatch' || !startsWith(github.event.ref, 'refs/tags/v')
+        with:
+          images: |
+            ghcr.io/qjoly/randomsecret
+
+      - name: Build and push - Release
+        uses: docker/build-push-action@v6
+        if:  startsWith(github.event.ref, 'refs/tags/v')
+        with:
+          context: .
+          push: true
+          file: Dockerfile
+          tags: ${{steps.meta.outputs.tags}}
+        
+      - name: Build and push - Dev
+        uses: docker/build-push-action@v6
+        if:  github.event_name == 'push' && startsWith(github.event.ref, 'refs/heads/')
+        with:
+          context: .
+          push: true
+          file: Dockerfile
+          tags: ghcr.io/qjoly/randomsecret:dev
+          
