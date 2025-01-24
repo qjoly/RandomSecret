@@ -70,25 +70,6 @@ func main() {
 				working = false
 			}
 		},
-		UpdateFunc: func(_, newObj interface{}) {
-			if !k.CheckLeader() {
-				k.WaitForLeader()
-			}
-			secret, ok := newObj.(*v1.Secret)
-			if !ok {
-				log.Println("Failed to cast to Secret")
-				return
-			}
-			if secrets.IsSecretManaged(*secret) {
-				working = true
-				klog.Infof("Updated, Found Secret %s", secret.Name)
-				err := secrets.ReconcileSecrets(clientset)
-				if err != nil {
-					klog.Infof("Error reconciling secrets: %v", err)
-				}
-				working = false
-			}
-		},
 	}
 
 	randomSecretWatch := &cache.ListWatch{
@@ -119,28 +100,6 @@ func main() {
 				return
 			}
 			klog.Infof("Added, Found RandomSecret %s", randomSecret.Name)
-			working = true
-			err = randomsecrets.ReconcileRandomSecrets(k, types.RandomSecretGVR)
-			if err != nil {
-				klog.Infof("Error reconciling RandomSecrets: %v", err)
-			}
-			working = false
-		},
-		UpdateFunc: func(_, newObj interface{}) {
-			if !k.CheckLeader() {
-				k.WaitForLeader()
-			}
-			unstructuredObj, ok := newObj.(runtime.Object)
-			if !ok {
-				log.Println("Failed to cast to Unstructured object")
-				return
-			}
-			randomSecret, err := randomsecrets.ToRandomSecret(unstructuredObj)
-			if err != nil {
-				log.Printf("Failed to convert object to RandomSecret: %v\n", err)
-				return
-			}
-			klog.Infof("Updated, Found RandomSecret %s", randomSecret.Name)
 			working = true
 			err = randomsecrets.ReconcileRandomSecrets(k, types.RandomSecretGVR)
 			if err != nil {
