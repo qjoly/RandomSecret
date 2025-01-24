@@ -8,5 +8,5 @@ roleRef:
   name: {{ include "random-operator.fullname" . }}-cluster-role
 subjects:
   - kind: ServiceAccount
-    name: random-secret-job-sa
+    name: {{ include "random-operator.fullname" . }}-job-sa
     namespace: {{ .Release.Namespace }}
