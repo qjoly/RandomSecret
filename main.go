@@ -29,12 +29,11 @@ var (
 
 func main() {
 	k := kube.NewClient()
+	go mutating.Run()
 
 	k.LeaderElection()
 	clientset := k.Clientset
 	dynamicClient := k.DynamicClient
-
-	go mutating.Run()
 
 	secrets.ReconcileSecrets(clientset)
 	randomsecrets.ReconcileRandomSecrets(k, types.RandomSecretGVR)
