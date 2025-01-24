@@ -64,7 +64,7 @@ func HandleSecrets(clientset *kubernetes.Clientset, secret v1.Secret) {
 }
 
 func GeneratePatch(secret v1.Secret) []byte {
-	return []byte(fmt.Sprintf(`[{"op": "add", "path": "/data/%s", "value": "%s"}]`, base64.StdEncoding.EncodeToString([]byte(getRandomSecretKey(secret))), string(secret.Data[getRandomSecretKey(secret)])))
+	return []byte(fmt.Sprintf(`[{"op": "add", "path": "/data/%s", "value": "%s"}]`, string(secret.Data[getRandomSecretKey(secret)]), base64.StdEncoding.EncodeToString([]byte(getRandomSecretKey(secret)))))
 }
 
 func GenerateRandomSecret(length int, specialChar bool) string {
