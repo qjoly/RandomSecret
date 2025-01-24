@@ -34,6 +34,9 @@ spec:
   key: password
   secretName: secret-name
   length: 32
+  static: 
+    username: admin
+    email: "quentin@a-cup-of.coffee"
 ```
 
 ### With annotations
