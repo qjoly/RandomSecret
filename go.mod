@@ -12,7 +12,7 @@ require (
 
 require (
 	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
-	sigs.k8s.io/controller-runtime v0.20.0
+	sigs.k8s.io/controller-runtime v0.20.1
 )
 
 require (
