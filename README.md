@@ -18,7 +18,7 @@ Install the operator by deploying the Helm chart:
 helm install randomsecrets-operator ./helm
 ```
 
-## Usage
+## Usage
 
 ### With a CRD
 
