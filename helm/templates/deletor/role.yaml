@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "random-operator.fullname" . }}-cleanup-job
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: pre-delete
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["delete"]

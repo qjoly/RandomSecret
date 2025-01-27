@@ -1,0 +1,9 @@
+apiVersion: secret.a-cup-of.coffee/v1
+kind: RandomSecret
+metadata:
+  name: random-secret2
+  namespace: default
+spec:
+  key: randomSecret
+  secretName: random-secret2
+  length: 32

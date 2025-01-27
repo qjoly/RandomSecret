@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "random-operator.fullname" . }}-cleanup-job
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: pre-delete
+spec:
+  template:
+    metadata:
+      name: {{ include "random-operator.fullname" . }}-cleanup-job
+    spec:
+      serviceAccountName: {{ include "random-operator.fullname" . }}-cleanup-job
+      containers:
+        - name: webhook-creator
+          image: nixery.dev/shell/kubectl/openssl
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              set -e
+              kubectl delete secret -n {{ .Release.Namespace }} {{ .Values.secretName }} || true
+              kubectl delete mutatingwebhookconfiguration {{ include "random-operator.fullname" . }}-webhook || true
+      restartPolicy: OnFailure
