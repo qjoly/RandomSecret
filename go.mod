@@ -1,8 +1,8 @@
 module github.com/qjoly/randomsecret
 
-go 1.23.0
+go 1.24.0
 
-toolchain go1.23.3
+toolchain go1.24.12
 
 require (
 	k8s.io/apimachinery v0.32.0
@@ -11,7 +11,7 @@ require (
 )
 
 require (
-	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
+	golang.org/x/exp v0.0.0-20260112195511-716be5621a96
 	sigs.k8s.io/controller-runtime v0.20.0
 )
 
@@ -25,7 +25,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	k8s.io/apiextensions-apiserver v0.32.0 // indirect
 )
